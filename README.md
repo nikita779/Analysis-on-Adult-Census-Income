@@ -1,1 +1,2 @@
 # Analysis-on-Adult-Census-Income
+In this data analytics case study, we will use R language to visualize if the income of any individual in the US is greater than or less than $50K/yr based on the information available about that individual in the census data. The main objective of the dataset is to classify people earning <=50k or >50k based on several explanatory factors affecting the income of a person like Age, Occupation, Education, etc.
