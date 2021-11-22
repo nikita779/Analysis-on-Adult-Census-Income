@@ -1,0 +1,183 @@
+---
+title: "Project-CompViz"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r Census Income Visualization}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(rpart.plot)
+library(rpart)
+library(caret) 
+library(knitr)
+library(sqldf)
+library(reshape2) #For plots
+
+
+Resampled_adult <- read_csv("new_income.csv")
+Resampled_adult
+View(Resampled_adult)
+
+# marital status and income ka combined histogram
+# color and income ka combined histogram
+
+#Resampled_adult <- data.frame( x = c(">50k", "<=50k"), stringsAsFactors = FALSE)
+
+#lookup <- c(">50k" = 0, "<=50k" = 1)
+
+#Resampled_adult$new_x <- lookup[Resampled_adult$x]
+
+Resampled_adult$income<-ifelse(Resampled_adult$income=='>50K',1,0)
+kable(head(Resampled_adult))
+
+#Income Classification
+barplot(table(Resampled_adult$income),main = 'Income Classification',col='blue',ylab ='No. of people', ylim = c(0,30000))
+
+# income with respect to age
+ggplot(Resampled_adult) + aes(x=as.numeric(age), group=income, fill=income) + 
+  geom_histogram(binwidth=1, color='black')+
+  labs(x="Age",y="Count",title = "Income w.r.t Age")
+
+# income with respect to workclass
+barplot(table(Resampled_adult$workclass),main = 'Income Classification w.r.t workclass',col='blue',ylab ='No. of people', las = 2)
+
+
+#Performing Logistic Regression
+#Dividing data in Training and Testing Datasets
+
+index<-createDataPartition(Resampled_adult$age,p=0.75,list = F)
+# argument 'list=F' is added so that it takes only indexes of the observations and not make a list row wise
+train_adult<-Resampled_adult[index,]
+test_adult<-Resampled_adult[-index,]
+dim(train_adult)
+
+tree_adult_model<-rpart(income~.,data = Resampled_adult)
+
+test_adult$pred_income<-predict(tree_adult_model,test_adult,type = "class")
+# an extra argument (type = "class") is required to directly classify prediction into classes
+
+head(test_adult)
+#plot decision tree
+rpart.plot(tree_adult_model,cex = 0.6) # cex argument was just to adjust the resolution
+
+
+
+
+
+# Count for narital status and income
+ms_count = table(Resampled_adult['marital.status'])
+ms_count
+
+in_count = table(Resampled_adult['income'])
+in_count
+
+t3 = Resampled_adult %>% count(income)
+t3col = c(t3$income)
+t4 = Resampled_adult %>% count(marital.status)
+t4col = c(t4$marital.status)
+
+##Marital Status and implication on the income levels
+MaritalLevel<- sqldf("SELECT 
+                    [marital.status] as status
+                    , Count (*) as ms_count
+                    , sum(income) as Above50k
+                    FROM 
+                    Resampled_adult
+                    GROUP BY 
+                    status
+                    ORDER BY status") 
+kable(MaritalLevel)
+
+Maritalclass<-melt(MaritalLevel,id.vars = 'status')
+ggplot(Maritalclass,aes(x=status,y=value,fill=variable))+
+  geom_bar(stat = 'identity')+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  ggtitle('Proportion of People with income above 50k')+
+  xlab("Marital Status")+
+  ylab("Number of People")
+
+
+
+## Gender and implication on the income levels
+GenderLevel<- sqldf("SELECT 
+                    sex as gender
+                       , Count (*) as Count
+                       , sum(income) as Above50k
+                       FROM 
+                       Resampled_adult
+                       GROUP BY 
+                       gender
+                       ORDER BY gender") 
+
+kable(GenderLevel)
+Genderclass<-melt(GenderLevel,id.vars = 'gender')
+ggplot(Genderclass,aes(x=gender,y=value,fill=variable))+
+  geom_bar(stat = 'identity')+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  ggtitle('Proportion of People with income above 50k')+
+  xlab("Gender Class")+
+  ylab("Number of People")
+
+
+
+
+# count wise distribution of marital status
+barplot(t4$n, ylim = c(0,30000), xlab = " ", ylab = " ", las = 2,
+        names.arg = t4col, col = "plum",
+        space = 0.2, font.axis = 6,cex.names = 0.5, main = "Barplot of count for Category")
+
+# count wise distribution of marital status
+#barplot(t3$n, main = "Barplot of count for Income", ylim = c(0,30000), las = 1, cex.names = 1, names.arg = t3col,
+#        col = "cadetblue")
+
+ggplot(Resampled_adult, aes(x=marital.status, y=income)) +
+  geom_point() + ylim(0, 200000)
+
+
+boxplot(ms_count~in_count, data = Resampled_adult)
+
+
+# plots for the subcategory of marital status according to income level
+kable(GenderLevel)
+Genderclass<-melt(GenderLevel,id.vars = 'gender')
+ggplot(Genderclass,aes(x=gender,y=value,fill=variable))+
+  geom_bar(stat = 'identity')+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  ggtitle('Proportion of People with income above 50k')+
+  xlab("Gender Class")+
+  ylab("Number of People")
+
+Education_Level<- sqldf("SELECT 
+                       education as 'Education'
+                       , Count (*) as 'Count'
+                       , sum(income) as 'Above50k'
+                       FROM 
+                       Resampled_adult
+                       GROUP BY 
+                       Education
+                       ORDER BY Education") 
+kable(Education_Level)
+EducationLevel<-melt(Education_Level,id.vars = 'Education')
+ggplot(EducationLevel,aes(x=Education,y=value,fill=variable))+
+  geom_bar(stat = 'identity')+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  ggtitle('Proportion of People with income above 50k')+
+  xlab("Education Class")+
+  ylab("Number of People")
+
+
+
+
+
+
+
+
+```
+
+
